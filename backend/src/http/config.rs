@@ -1,19 +1,25 @@
-use std::net::{IpAddr, Ipv3Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use anyhow::anyhow;
 use flat_config::{pool::FlatPool, ConfigBuilder, ConfigError, TryUnwrap};
 
 use crate::StdResult;
 
-pub struct HttpConfig {
+pub struct BackendHttpConfig {
     http_address: IpAddr,
     http_port: u16,
 }
 
-#[derive(Default)]
-pub struct HttpConfigBuilder;
+impl BackendHttpConfig {
+    pub fn get_listen_address(&self) -> String {
+        format!("{}:{}", self.http_address, self.http_port)
+    }
+}
 
-impl HttpConfigBuilder {
+#[derive(Default)]
+pub struct BackendHttpConfigBuilder;
+
+impl BackendHttpConfigBuilder {
     fn parse_ip_address(&self, ip_address: &str) -> StdResult<IpAddr> {
         let ip_address = match ip_address.parse::<Ipv6Addr>() {
             Ok(ip) => IpAddr::V6(ip),
@@ -28,9 +34,9 @@ impl HttpConfigBuilder {
     }
 }
 
-impl ConfigBuilder<HttpConfig> for HttpConfigBuilder {
-    fn build(&self, config_pool: &impl FlatPool) -> Result<HttpConfig, ConfigError> {
-        let ip_address: String = config_pool.require("http_port")?.try_unwrap()?;
+impl ConfigBuilder<BackendHttpConfig> for BackendHttpConfigBuilder {
+    fn build(&self, config_pool: &impl FlatPool) -> Result<BackendHttpConfig, ConfigError> {
+        let ip_address: String = config_pool.require("http_address")?.try_unwrap()?;
         let http_address = self.parse_ip_address(&ip_address).map_err(|e| {
             ConfigError::IncorrectValue(format!(
                 "HTTP_ADDRESS: Invalid IPV6 or IPV4 value '{ip_address}' ({e})."
@@ -45,12 +51,12 @@ impl ConfigBuilder<HttpConfig> for HttpConfigBuilder {
         })?;
 
         if http_port == 0 {
-            return Err(ConfigError::IncorrectValue(format!(
-                "HTTP_PORT: 0 is a reserved TCP port"
-            )));
+            return Err(ConfigError::IncorrectValue(
+                "HTTP_PORT: 0 is a reserved TCP port".to_string(),
+            ));
         }
 
-        Ok(HttpConfig {
+        Ok(BackendHttpConfig {
             http_address,
             http_port,
         })
@@ -64,7 +70,7 @@ mod tests {
     #[test]
     fn ipv4_address_parsing() {
         let ip = "127.0.0.1";
-        let config_builder = HttpConfigBuilder::default();
+        let config_builder = BackendHttpConfigBuilder::default();
 
         assert_eq!(
             IpAddr::V4("127.0.0.1".parse::<Ipv4Addr>().unwrap()),
@@ -75,7 +81,7 @@ mod tests {
     #[test]
     fn ipv6_address_parsing() {
         let ip = "::1";
-        let config_builder = HttpConfigBuilder::default();
+        let config_builder = BackendHttpConfigBuilder::default();
 
         assert_eq!(
             IpAddr::V6("::1".parse::<Ipv6Addr>().unwrap()),
@@ -86,7 +92,7 @@ mod tests {
     #[test]
     fn bad_ip_parsing() {
         let bad_ip = "pika chu";
-        let config_builder = HttpConfigBuilder::default();
+        let config_builder = BackendHttpConfigBuilder::default();
 
         config_builder.parse_ip_address(bad_ip).unwrap_err();
     }

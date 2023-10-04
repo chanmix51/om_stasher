@@ -1,12 +1,11 @@
 //! Dependencies resolution
 
 use anyhow::Error;
-use std::{fmt::Display, sync::Arc};
+use flat_config::{pool::SimpleFlatPool, ConfigBuilder};
+use std::sync::Arc;
 use thiserror::Error;
 
-use flat_config::pool::FlatPool;
-
-use crate::StdResult;
+use crate::http::{BackendHttpConfigBuilder, BackendHttpService};
 
 #[derive(Error, Debug)]
 pub enum DependenciesError {
@@ -15,11 +14,22 @@ pub enum DependenciesError {
 }
 
 pub struct Dependencies {
-    configuration: Arc<dyn FlatPool>,
+    configuration: SimpleFlatPool,
 }
 
 impl Dependencies {
-    pub fn new(configuration: Arc<dyn FlatPool>) -> Self {
+    pub fn new(configuration: SimpleFlatPool) -> Self {
         Self { configuration }
+    }
+
+    pub async fn build_http_service(
+        &mut self,
+    ) -> Result<Arc<BackendHttpService>, DependenciesError> {
+        let config = BackendHttpConfigBuilder {}
+            .build(&self.configuration)
+            .map_err(|e| DependenciesError::ConfigError(e.into()))?;
+        let service = BackendHttpService::new(Arc::new(config));
+
+        Ok(Arc::new(service))
     }
 }

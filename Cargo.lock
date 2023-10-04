@@ -155,6 +155,8 @@ dependencies = [
  "clap",
  "flat_config",
  "salvo",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
 ]
