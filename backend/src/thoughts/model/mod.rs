@@ -1,5 +1,5 @@
-mod agrum;
+mod store;
 mod thought;
 
-pub use agrum::*;
+pub use store::*;
 pub use thought::*;

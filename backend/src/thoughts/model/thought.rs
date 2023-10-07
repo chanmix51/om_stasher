@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use either::Either;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -13,14 +12,14 @@ pub struct ThoughtSource {
 }
 
 #[derive(Debug)]
-pub struct ThoughtNode {
-    pub parent_thought_id: Uuid,
-    pub thought: String,
-}
-
-#[derive(Debug)]
-pub struct ThoughtThread {
-    pub title: String,
+pub enum ThoughtContent {
+    Node {
+        parent_thought_id: Uuid,
+        thought: String,
+    },
+    Thread {
+        title: String,
+    },
 }
 
 #[derive(Debug)]
@@ -30,22 +29,20 @@ pub struct ThoughtEnvelope {
     pub categories: Vec<String>,
     pub sources: Vec<ThoughtSource>,
     pub created_at: DateTime<Utc>,
-    pub content: Either<ThoughtThread, ThoughtNode>,
+    pub content: ThoughtContent,
 }
 
 impl From<ThoughtEntity> for ThoughtEnvelope {
     fn from(value: ThoughtEntity) -> Self {
         let content = if let Some(parent_thought_id) = value.parent_thought_id {
-            let thought_node = ThoughtNode {
+            ThoughtContent::Node {
                 parent_thought_id,
                 thought: value.content,
-            };
-
-            Either::Right(thought_node)
+            }
         } else {
-            Either::Left(ThoughtThread {
+            ThoughtContent::Thread {
                 title: value.content,
-            })
+            }
         };
 
         let sources: Vec<ThoughtSource> = value
