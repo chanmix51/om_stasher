@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::ThoughtEntity;
+use super::agrum::ThoughtEntity;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThoughtSource {
