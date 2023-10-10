@@ -8,7 +8,7 @@ use crate::StdResult;
 use super::{agrum::ThoughtEntityRepository, ThoughtEnvelope as Thought};
 
 #[async_trait]
-pub trait ThoughtStore {
+pub trait ThoughtStore: Sync + Send {
     async fn get_thought(&self, thought_id: &Uuid) -> StdResult<Option<Thought>>;
 }
 

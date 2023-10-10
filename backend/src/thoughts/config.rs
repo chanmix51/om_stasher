@@ -3,11 +3,11 @@ use flat_config::{pool::FlatPool, ConfigBuilder, ConfigError, TryUnwrap};
 
 use crate::StdResult;
 
-pub struct ThoughtsServiceConfig {
+pub struct ThoughtServiceConfig {
     database_dsn: DSN,
 }
 
-impl ThoughtsServiceConfig {
+impl ThoughtServiceConfig {
     pub fn get_database_connection_string(&self) -> StdResult<String> {
         let connstring = format!(
             "host={} user={}",
@@ -26,10 +26,10 @@ impl ThoughtsServiceConfig {
 }
 
 #[derive(Debug, Default)]
-pub struct ThoughtsServiceConfigBuilder;
+pub struct ThoughtServiceConfigBuilder;
 
-impl ConfigBuilder<ThoughtsServiceConfig> for ThoughtsServiceConfigBuilder {
-    fn build(&self, config_pool: &impl FlatPool) -> Result<ThoughtsServiceConfig, ConfigError> {
+impl ConfigBuilder<ThoughtServiceConfig> for ThoughtServiceConfigBuilder {
+    fn build(&self, config_pool: &impl FlatPool) -> Result<ThoughtServiceConfig, ConfigError> {
         let dsn_string: String = config_pool.require("database_dsn")?.try_unwrap()?;
         let database_dsn = dsn::parse(&dsn_string).map_err(|e| {
             ConfigError::IncorrectValue(format!(
@@ -37,7 +37,7 @@ impl ConfigBuilder<ThoughtsServiceConfig> for ThoughtsServiceConfigBuilder {
             ))
         })?;
 
-        Ok(ThoughtsServiceConfig { database_dsn })
+        Ok(ThoughtServiceConfig { database_dsn })
     }
 }
 
@@ -51,7 +51,7 @@ mod tests {
     fn test_connection_dsn_without_password() {
         let mut flat_pool = SimpleFlatPool::default();
         flat_pool.add("database_dsn", "pgsql://user@host".into());
-        let config = ThoughtsServiceConfigBuilder::default()
+        let config = ThoughtServiceConfigBuilder::default()
             .build(flat_pool)
             .unwrap();
 
@@ -62,7 +62,7 @@ mod tests {
     fn test_connection_dsn_with_password() {
         let mut flat_pool = SimpleFlatPool::default();
         flat_pool.add("database_dsn", "pgsql://user:passw@host".into());
-        let config = ThoughtsServiceConfigBuilder::default()
+        let config = ThoughtServiceConfigBuilder::default()
             .build(flat_pool)
             .unwrap();
 

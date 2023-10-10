@@ -8,7 +8,7 @@ type DynFlatPool = SimpleFlatPool;
 pub struct ConfigurationBuilder {
     flat_pool: DynFlatPool,
     http_config: Option<Arc<crate::http::BackendHttpConfig>>,
-    thought_config: Option<Arc<crate::thoughts::ThoughtsServiceConfig>>,
+    thought_config: Option<Arc<crate::thoughts::ThoughtServiceConfig>>,
 }
 
 impl ConfigurationBuilder {
@@ -36,15 +36,15 @@ impl ConfigurationBuilder {
 
     fn build_thought_config(
         &mut self,
-    ) -> Result<Arc<crate::thoughts::ThoughtsServiceConfig>, ConfigError> {
-        let config = crate::thoughts::ThoughtsServiceConfigBuilder {}.build(&self.flat_pool)?;
+    ) -> Result<Arc<crate::thoughts::ThoughtServiceConfig>, ConfigError> {
+        let config = crate::thoughts::ThoughtServiceConfigBuilder {}.build(&self.flat_pool)?;
 
         Ok(Arc::new(config))
     }
 
     pub fn get_thought_config(
         &mut self,
-    ) -> Result<Arc<crate::thoughts::ThoughtsServiceConfig>, ConfigError> {
+    ) -> Result<Arc<crate::thoughts::ThoughtServiceConfig>, ConfigError> {
         if self.thought_config.is_none() {
             self.thought_config = Some(self.build_thought_config()?);
         }
