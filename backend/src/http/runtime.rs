@@ -1,4 +1,4 @@
-//! HTTP service module
+//! HTTP runtime module
 use std::sync::Arc;
 
 use salvo::prelude::*;
@@ -8,7 +8,7 @@ use crate::StdResult;
 
 use super::BackendHttpConfig;
 
-pub struct BackendHttpService {
+pub struct BackendHttpRuntime {
     config: Arc<BackendHttpConfig>,
 }
 
@@ -30,7 +30,7 @@ async fn index(res: &mut Response) {
     res.render(serde_json::to_string(&ApiVersion::default()).unwrap());
 }
 
-impl BackendHttpService {
+impl BackendHttpRuntime {
     pub fn new(config: Arc<BackendHttpConfig>) -> Self {
         Self { config }
     }

@@ -7,5 +7,6 @@ pub mod thoughts;
 pub type StdError = anyhow::Error;
 pub type StdResult<T> = anyhow::Result<T>;
 
+pub use configuration::ConfigurationBuilder;
 pub use dependencies::*;
 pub use services_container::*;

@@ -2,6 +2,8 @@ use backend::{DependenciesBuilder, StdResult};
 use clap::Parser;
 use flat_config::pool::SimpleFlatPool;
 
+use backend::ConfigurationBuilder;
+
 /// Possible command line options and arguments
 #[derive(Debug, Parser)]
 pub struct CommandLineParameters {
@@ -38,9 +40,10 @@ impl CommandLineParameters {
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let flat_pool = CommandLineParameters::parse().to_flat_pool();
-    let mut dependencies = DependenciesBuilder::new(Configuration::new(Box::new(flat_pool)));
+    let mut dependencies = DependenciesBuilder::new(ConfigurationBuilder::new(flat_pool));
     let http_service_runtime = dependencies.build_http_service().await?;
     let http_service_handle = tokio::spawn(async move { http_service_runtime.run().await });
+    let services_container = dependencies.build_services_container().await?;
 
     tokio::select! {
     _ = http_service_handle => ()

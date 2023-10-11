@@ -65,10 +65,10 @@ impl DependenciesBuilder {
         todo!()
     }
 
-    pub async fn build_http_service(
+    pub async fn build_http_runtime(
         &mut self,
-    ) -> Result<Arc<crate::http::BackendHttpService>, DependenciesError> {
-        let service = crate::http::BackendHttpService::new(self.config_builder.get_http_config()?);
+    ) -> Result<Arc<crate::http::BackendHttpRuntime>, DependenciesError> {
+        let service = crate::http::BackendHttpRuntime::new(self.config_builder.get_http_config()?);
 
         Ok(Arc::new(service))
     }
