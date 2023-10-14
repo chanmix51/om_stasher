@@ -16,6 +16,7 @@ impl BackendHttpConfig {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct BackendHttpConfigBuilder;
 
 impl BackendHttpConfigBuilder {

@@ -13,11 +13,11 @@ pub trait ThoughtStore: Sync + Send {
 }
 
 pub struct AgrumThoughtStore<'client> {
-    thought_provider: Arc<ThoughtEntityRepository<'client>>,
+    thought_repository: Arc<ThoughtEntityRepository<'client>>,
 }
 
 impl<'client> AgrumThoughtStore<'client> {
-    pub fn new(thought_provider: Arc<ThoughtEntityRepository<'client>>) -> Self {
-        Self { thought_provider }
+    pub fn new(thought_repository: Arc<ThoughtEntityRepository<'client>>) -> Self {
+        Self { thought_repository }
     }
 }

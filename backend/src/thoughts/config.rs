@@ -48,24 +48,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_connection_dsn_without_password() {
+    fn test_connection_dsn_without_password() -> StdResult<()> {
         let mut flat_pool = SimpleFlatPool::default();
         flat_pool.add("database_dsn", "pgsql://user@host".into());
         let config = ThoughtServiceConfigBuilder::default()
-            .build(flat_pool)
+            .build(&flat_pool)
             .unwrap();
 
-        assert_eq!("host=host user=user",, &config.get_database_connection_string());
+        assert_eq!(
+            "host=host user=user",
+            &config.get_database_connection_string()?
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_connection_dsn_with_password() {
+    fn test_connection_dsn_with_password() -> StdResult<()> {
         let mut flat_pool = SimpleFlatPool::default();
         flat_pool.add("database_dsn", "pgsql://user:passw@host".into());
         let config = ThoughtServiceConfigBuilder::default()
-            .build(flat_pool)
+            .build(&flat_pool)
             .unwrap();
 
-        assert_eq!("host=host user=user password=passw",, &config.get_database_connection_string());
+        assert_eq!(
+            "host=host user=user password=passw",
+            &config.get_database_connection_string()?
+        );
+
+        Ok(())
     }
 }

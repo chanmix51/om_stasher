@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::StdResult;
 
 /// Entity read/written from/to database.
+#[derive(Debug)]
 pub struct ThoughtEntity {
     pub thought_id: Uuid,
     pub parent_thought_id: Option<Uuid>,
@@ -61,6 +62,7 @@ impl SqlEntity for ThoughtEntity {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct ThoughtEntitySqlDefinition {
     projection: Projection<ThoughtEntity>,
     source_aliases: SourceAliases,
@@ -93,5 +95,22 @@ impl<'client> ThoughtEntityRepository<'client> {
             .pop();
 
         Ok(entity)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thought_sql_definition() -> StdResult<()> {
+        let definition = ThoughtEntitySqlDefinition::default();
+
+        assert_eq!(
+            "select pika from thought.thought where true".to_string(),
+            definition.expand("true")
+        );
+
+        Ok(())
     }
 }

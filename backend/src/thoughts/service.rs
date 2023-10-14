@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::{ServicesContainer, StdResult};
+use crate::StdResult;
 
 use super::{
     model::{ThoughtEnvelope, ThoughtSource, ThoughtStore},
@@ -18,7 +18,7 @@ pub enum ThoughtServiceError {
 
 /// Description of the API for BackendHttpService`
 #[async_trait]
-pub trait ThoughtService {
+pub trait ThoughtService: Sync + Send {
     /// Retrieve a thought from the referential, if no thought is found, None is returned.
     async fn get_thought(&self, thought_id: &str) -> StdResult<Option<ThoughtEnvelope>>;
 

@@ -30,6 +30,7 @@ impl CommandLineParameters {
         let tcp_port = self.http_port as isize;
 
         flat_pool
+            .add("database_dsn", self.database_dsn.as_str().into())
             .add("http_address", self.http_address.as_str().into())
             .add("http_port", tcp_port.into());
 
@@ -41,9 +42,8 @@ impl CommandLineParameters {
 async fn main() -> StdResult<()> {
     let flat_pool = CommandLineParameters::parse().to_flat_pool();
     let mut dependencies = DependenciesBuilder::new(ConfigurationBuilder::new(flat_pool));
-    let http_service_runtime = dependencies.build_http_service().await?;
+    let http_service_runtime = dependencies.build_http_runtime().await?;
     let http_service_handle = tokio::spawn(async move { http_service_runtime.run().await });
-    let services_container = dependencies.build_services_container().await?;
 
     tokio::select! {
     _ = http_service_handle => ()

@@ -4,12 +4,13 @@ use std::sync::Arc;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::StdResult;
+use crate::{ServicesContainer, StdResult};
 
 use super::BackendHttpConfig;
 
 pub struct BackendHttpRuntime {
     config: Arc<BackendHttpConfig>,
+    services_container: Arc<ServicesContainer>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,8 +32,11 @@ async fn index(res: &mut Response) {
 }
 
 impl BackendHttpRuntime {
-    pub fn new(config: Arc<BackendHttpConfig>) -> Self {
-        Self { config }
+    pub fn new(config: Arc<BackendHttpConfig>, services_container: Arc<ServicesContainer>) -> Self {
+        Self {
+            config,
+            services_container,
+        }
     }
 
     pub async fn run(&self) -> StdResult<()> {

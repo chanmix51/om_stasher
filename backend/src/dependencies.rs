@@ -24,6 +24,7 @@ impl From<ConfigError> for DependenciesError {
 
 pub struct DependenciesBuilder {
     config_builder: ConfigurationBuilder,
+    services_container: Option<Arc<ServicesContainer>>,
     thought_store: Option<Arc<dyn crate::thoughts::model::ThoughtStore>>,
     thought_service: Option<Arc<dyn crate::thoughts::ThoughtService>>,
 }
@@ -32,6 +33,7 @@ impl DependenciesBuilder {
     pub fn new(config_builder: ConfigurationBuilder) -> Self {
         Self {
             config_builder,
+            services_container: None,
             thought_store: None,
             thought_service: None,
         }
@@ -59,18 +61,34 @@ impl DependenciesBuilder {
         todo!()
     }
 
+    pub async fn build_thought_store(
+        &mut self,
+    ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
+        //let provider = agrum::core::Provider<'_, crate::thoughts::model::agrum::ThoughtEntity>::
+        //let thought_provider = crate::thoughts::model::agrum::ThoughtEntityRepository::new(provider);
+        todo!()
+    }
+
     pub async fn get_thought_store(
         &mut self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
-        todo!()
+        if self.thought_store.is_none() {
+            self.thought_store = Some(self.build_thought_store().await?);
+        }
+
+        Ok(self.thought_store.as_ref().cloned().unwrap())
     }
 
     pub async fn build_http_runtime(
         &mut self,
     ) -> Result<Arc<crate::http::BackendHttpRuntime>, DependenciesError> {
-        let service = crate::http::BackendHttpRuntime::new(self.config_builder.get_http_config()?);
+        //let services_container = self.get_services_container().await?;
+        let runtime = crate::http::BackendHttpRuntime::new(
+            self.config_builder.get_http_config()?,
+            self.get_services_container().await?,
+        );
 
-        Ok(Arc::new(service))
+        Ok(Arc::new(runtime))
     }
 
     async fn build_thought_service(
@@ -94,11 +112,21 @@ impl DependenciesBuilder {
         Ok(self.thought_service.as_ref().cloned().unwrap())
     }
 
-    pub async fn build_services_container(
-        mut self,
+    async fn build_services_container(
+        &mut self,
     ) -> Result<Arc<ServicesContainer>, DependenciesError> {
         let thoughts_service = self.get_thought_service().await?;
 
         Ok(Arc::new(ServicesContainer::new(thoughts_service)))
+    }
+
+    pub async fn get_services_container(
+        &mut self,
+    ) -> Result<Arc<ServicesContainer>, DependenciesError> {
+        if self.services_container.is_none() {
+            self.services_container = Some(self.build_services_container().await?);
+        }
+
+        Ok(self.services_container.as_ref().cloned().unwrap())
     }
 }
