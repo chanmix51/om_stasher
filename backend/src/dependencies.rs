@@ -24,6 +24,7 @@ impl From<ConfigError> for DependenciesError {
 
 pub struct DependenciesBuilder {
     config_builder: ConfigurationBuilder,
+    db_client: Option<Arc<tokio_postgres::Client>>,
     services_container: Option<Arc<ServicesContainer>>,
     thought_store: Option<Arc<dyn crate::thoughts::model::ThoughtStore>>,
     thought_service: Option<Arc<dyn crate::thoughts::ThoughtService>>,
@@ -33,17 +34,18 @@ impl DependenciesBuilder {
     pub fn new(config_builder: ConfigurationBuilder) -> Self {
         Self {
             config_builder,
+            db_client: None,
             services_container: None,
             thought_store: None,
             thought_service: None,
         }
     }
 
-    pub async fn build_sql_client(&mut self) -> Result<tokio_postgres::Client, DependenciesError> {
-        /*
+    async fn build_db_client(&mut self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
         let config = self
-            .configuration
-            .get_postgres_connection_string()
+            .config_builder
+            .get_thought_config()?
+            .get_database_connection_string()
             .map_err(DependenciesError::ConfigError)?;
 
         let (client, connection) = tokio_postgres::connect(&config, tokio_postgres::NoTls)
@@ -56,17 +58,24 @@ impl DependenciesBuilder {
             }
         });
 
-        Ok(client)
-        */
-        todo!()
+        Ok(Arc::new(client))
+    }
+
+    async fn get_db_client(&mut self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
+        if self.db_client.is_none() {
+            self.db_client = Some(self.build_db_client().await?);
+        }
+
+        Ok(self.db_client.as_ref().cloned().unwrap())
     }
 
     pub async fn build_thought_store(
         &mut self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
-        //let provider = agrum::core::Provider<'_, crate::thoughts::model::agrum::ThoughtEntity>::
-        //let thought_provider = crate::thoughts::model::agrum::ThoughtEntityRepository::new(provider);
-        todo!()
+        let client = self.get_db_client().await?;
+        let thought_store = crate::thoughts::model::AgrumThoughtStore::new(client);
+
+        Ok(Arc::new(thought_store))
     }
 
     pub async fn get_thought_store(

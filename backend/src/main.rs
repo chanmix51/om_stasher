@@ -25,6 +25,7 @@ pub struct CommandLineParameters {
 }
 
 impl CommandLineParameters {
+    /// This function converts parameters values to FlatPool Values.
     pub fn to_flat_pool(self) -> SimpleFlatPool {
         let mut flat_pool = SimpleFlatPool::default();
         let tcp_port = self.http_port as isize;
@@ -40,6 +41,7 @@ impl CommandLineParameters {
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
+    // Do not forget to update `to_flat_pool` function when new command line parameters are added.
     let flat_pool = CommandLineParameters::parse().to_flat_pool();
     let mut dependencies = DependenciesBuilder::new(ConfigurationBuilder::new(flat_pool));
     let http_service_runtime = dependencies.build_http_runtime().await?;
