@@ -1,6 +1,8 @@
 //! HTTP runtime module
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use salvo::affix;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -27,8 +29,28 @@ impl Default for ApiVersion {
 }
 
 #[handler]
-async fn index(res: &mut Response) {
-    res.render(serde_json::to_string(&ApiVersion::default()).unwrap());
+async fn index(
+    _request: &mut Request,
+    depot: &mut Depot,
+    response: &mut Response,
+) -> StdResult<()> {
+    let services = depot
+        .obtain::<Arc<ServicesContainer>>()
+        .map_err(|_| anyhow!("Could not obtain services container.".to_string()))?
+        .clone();
+    let thought = services.thought_service.get_thought("whatever").await?;
+
+    match thought {
+        Some(t) => {
+            response.render(Text::Plain(format!("There is a thought: {t:?}")));
+        }
+        None => {
+            response.status_code(StatusCode::NOT_FOUND);
+        }
+    }
+    // response.render(serde_json::to_string(&ApiVersion::default()).unwrap());
+
+    Ok(())
 }
 
 impl BackendHttpRuntime {
@@ -41,7 +63,9 @@ impl BackendHttpRuntime {
 
     pub async fn run(&self) -> StdResult<()> {
         //tracing_subscriber::fmt().init();
-        let router = Router::new().get(index);
+        let router = Router::new()
+            .hoop(affix::inject(self.services_container.clone()))
+            .get(index);
         let acceptor = TcpListener::new(&self.config.get_listen_address())
             .bind()
             .await;

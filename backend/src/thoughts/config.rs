@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_connection_dsn_without_password() -> StdResult<()> {
         let mut flat_pool = SimpleFlatPool::default();
-        flat_pool.add("database_dsn", "pgsql://user@host".into());
+        flat_pool.add("database_dsn", "pgsql://user@tcp(host)".into());
         let config = ThoughtServiceConfigBuilder::default()
             .build(&flat_pool)
             .unwrap();
@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn test_connection_dsn_with_password() -> StdResult<()> {
         let mut flat_pool = SimpleFlatPool::default();
-        flat_pool.add("database_dsn", "pgsql://user:passw@host".into());
+        flat_pool.add("database_dsn", "pgsql://user:passw@tcp(host)".into());
         let config = ThoughtServiceConfigBuilder::default()
             .build(&flat_pool)
             .unwrap();

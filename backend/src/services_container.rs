@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::thoughts::ThoughtService;
 
 pub struct ServicesContainer {
-    thought_service: Arc<dyn ThoughtService>,
+    pub thought_service: Arc<dyn ThoughtService>,
 }
 
 impl ServicesContainer {

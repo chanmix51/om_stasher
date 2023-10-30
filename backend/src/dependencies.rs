@@ -42,15 +42,20 @@ impl DependenciesBuilder {
     }
 
     async fn build_db_client(&mut self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
-        let config = self
+        let connection_string = self
             .config_builder
             .get_thought_config()?
             .get_database_connection_string()
             .map_err(DependenciesError::ConfigError)?;
 
-        let (client, connection) = tokio_postgres::connect(&config, tokio_postgres::NoTls)
-            .await
-            .map_err(|e| DependenciesError::SetupError(e.into()))?;
+        let (client, connection) =
+            tokio_postgres::connect(&connection_string, tokio_postgres::NoTls)
+                .await
+                .map_err(|e| {
+                    DependenciesError::SetupError(anyhow!(e).context(format!(
+                        "Error opening database connection using DSN '{connection_string}'."
+                    )))
+                })?;
 
         tokio::spawn(async move {
             if let Err(e) = connection.await {

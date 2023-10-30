@@ -9,7 +9,7 @@ edition = "2021"
 agrum = { path = "../../../agrum" }
 anyhow = "1.0.75"
 clap = { version = "4.4.6", features = ["env", "derive"] }
-salvo = { version = "0.55.5", features = ["anyhow"] }
+salvo = { version = "0.55.5", features = ["anyhow", "affix"] }
 thiserror = "1.0.49"
 tokio = { version = "1.32.0", features = ["time", "rt-multi-thread", "macros"] }
 flat_config = { path = "../../flat_config" }
