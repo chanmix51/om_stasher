@@ -53,7 +53,7 @@ impl DependenciesBuilder {
                 .await
                 .map_err(|e| {
                     DependenciesError::SetupError(anyhow!(e).context(format!(
-                        "Error opening database connection using DSN '{connection_string}'."
+                        "Error opening database connection using string '{connection_string}'."
                     )))
                 })?;
 

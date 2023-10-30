@@ -2,9 +2,12 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use anyhow::Context;
+use log::{debug, info};
 use salvo::affix;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{ServicesContainer, StdResult};
 
@@ -34,17 +37,21 @@ async fn index(
     depot: &mut Depot,
     response: &mut Response,
 ) -> StdResult<()> {
+    info!("ROUTE: index ('/').");
     let services = depot
         .obtain::<Arc<ServicesContainer>>()
         .map_err(|_| anyhow!("Could not obtain services container.".to_string()))?
         .clone();
-    let thought = services.thought_service.get_thought("whatever").await?;
+    let thought_id = Uuid::parse_str("40b5b09f-04d3-4340-b794-c4afe9b4f6d1")?;
+    let thought = services.thought_service.get_thought(&thought_id).await?;
 
     match thought {
         Some(t) => {
-            response.render(Text::Plain(format!("There is a thought: {t:?}")));
+            debug!("Found thought ID='{}'.", t.thought_id);
+            response.render(format!("There is a thought: {t:?}"));
         }
         None => {
+            debug!("No thought found for ID='{thought_id}'.");
             response.status_code(StatusCode::NOT_FOUND);
         }
     }
@@ -67,8 +74,14 @@ impl BackendHttpRuntime {
             .hoop(affix::inject(self.services_container.clone()))
             .get(index);
         let acceptor = TcpListener::new(&self.config.get_listen_address())
-            .bind()
-            .await;
+            .try_bind()
+            .await
+            .with_context(|| {
+                format!(
+                    "Could not launch HTTP server at address '{}'.",
+                    &self.config.get_listen_address(),
+                )
+            })?;
         Server::new(acceptor).serve(router).await;
 
         Ok(())

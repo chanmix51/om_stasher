@@ -1,5 +1,7 @@
+use anyhow::anyhow;
 use backend::{DependenciesBuilder, StdResult};
 use clap::Parser;
+use clap_verbosity_flag::Verbosity;
 use flat_config::pool::SimpleFlatPool;
 
 use backend::ConfigurationBuilder;
@@ -22,6 +24,10 @@ pub struct CommandLineParameters {
     /// Postgres DSN
     #[arg(long, env = "OMSTASHER_DATABASE_DSN")]
     database_dsn: String,
+
+    /// Verbose mode (-q, -v, -vv, -vvv, etc)
+    #[command(flatten)]
+    verbose: Verbosity,
 }
 
 impl CommandLineParameters {
@@ -41,16 +47,26 @@ impl CommandLineParameters {
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
+    let parameters = CommandLineParameters::parse();
+
+    // logger initialization
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(parameters.verbose.is_silent())
+        .verbosity(parameters.verbose.log_level_filter())
+        .init()?;
+
     // Do not forget to update `to_flat_pool` function when new command line parameters are added.
-    let flat_pool = CommandLineParameters::parse().to_flat_pool();
+    let flat_pool = parameters.to_flat_pool();
     let mut dependencies = DependenciesBuilder::new(ConfigurationBuilder::new(flat_pool));
     let http_service_runtime = dependencies.build_http_runtime().await?;
     let http_service_handle = tokio::spawn(async move { http_service_runtime.run().await });
 
-    tokio::select! {
-    _ = http_service_handle => ()
-    }
+    let runtime_result = tokio::select! {
+        res = http_service_handle => res.map_err(|e| anyhow!(e)),
+    }?;
+
     println!("Quitting…");
 
-    Ok(())
+    runtime_result
 }
