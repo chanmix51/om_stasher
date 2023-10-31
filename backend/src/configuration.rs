@@ -1,54 +1,59 @@
 use std::sync::Arc;
 
 use flat_config::{pool::SimpleFlatPool, ConfigBuilder, ConfigError};
+use tokio::sync::OnceCell;
 
 type DynFlatPool = SimpleFlatPool;
 
 /// Configuration builder
 pub struct ConfigurationBuilder {
     flat_pool: DynFlatPool,
-    http_config: Option<Arc<crate::http::BackendHttpConfig>>,
-    thought_config: Option<Arc<crate::thoughts::ThoughtServiceConfig>>,
+    http_config: OnceCell<Arc<crate::http::BackendHttpConfig>>,
+    thought_config: OnceCell<Arc<crate::thoughts::ThoughtServiceConfig>>,
 }
 
 impl ConfigurationBuilder {
     pub fn new(flat_pool: DynFlatPool) -> Self {
         Self {
             flat_pool,
-            http_config: None,
-            thought_config: None,
+            http_config: OnceCell::new(),
+            thought_config: OnceCell::new(),
         }
     }
 
-    fn build_http_config(&self) -> Result<Arc<crate::http::BackendHttpConfig>, ConfigError> {
+    async fn build_http_config(&self) -> Result<Arc<crate::http::BackendHttpConfig>, ConfigError> {
         let config = crate::http::BackendHttpConfigBuilder {}.build(&self.flat_pool)?;
 
         Ok(Arc::new(config))
     }
 
-    pub fn get_http_config(&mut self) -> Result<Arc<crate::http::BackendHttpConfig>, ConfigError> {
-        if self.http_config.is_none() {
-            self.http_config = Some(self.build_http_config()?);
-        }
+    pub async fn get_http_config(
+        &self,
+    ) -> Result<Arc<crate::http::BackendHttpConfig>, ConfigError> {
+        let init = self.build_http_config();
 
-        Ok(self.http_config.as_ref().cloned().unwrap())
+        self.http_config
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 
-    fn build_thought_config(
-        &mut self,
+    async fn build_thought_config(
+        &self,
     ) -> Result<Arc<crate::thoughts::ThoughtServiceConfig>, ConfigError> {
         let config = crate::thoughts::ThoughtServiceConfigBuilder {}.build(&self.flat_pool)?;
 
         Ok(Arc::new(config))
     }
 
-    pub fn get_thought_config(
-        &mut self,
+    pub async fn get_thought_config(
+        &self,
     ) -> Result<Arc<crate::thoughts::ThoughtServiceConfig>, ConfigError> {
-        if self.thought_config.is_none() {
-            self.thought_config = Some(self.build_thought_config()?);
-        }
+        let init = self.build_thought_config();
 
-        Ok(self.thought_config.as_ref().cloned().unwrap())
+        self.thought_config
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 }

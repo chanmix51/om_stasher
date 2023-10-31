@@ -4,7 +4,7 @@ use clap::Parser;
 use clap_verbosity_flag::Verbosity;
 use flat_config::pool::SimpleFlatPool;
 
-use backend::ConfigurationBuilder;
+use backend::{ConfigurationBuilder, Runtime};
 
 /// Possible command line options and arguments
 #[derive(Debug, Parser)]

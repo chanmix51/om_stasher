@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use flat_config::ConfigError;
 use thiserror::Error;
+use tokio::sync::OnceCell;
 
 use crate::{configuration::ConfigurationBuilder, ServicesContainer, StdError};
 
@@ -24,27 +25,28 @@ impl From<ConfigError> for DependenciesError {
 
 pub struct DependenciesBuilder {
     config_builder: ConfigurationBuilder,
-    db_client: Option<Arc<tokio_postgres::Client>>,
-    services_container: Option<Arc<ServicesContainer>>,
-    thought_store: Option<Arc<dyn crate::thoughts::model::ThoughtStore>>,
-    thought_service: Option<Arc<dyn crate::thoughts::ThoughtService>>,
+    db_client: OnceCell<Arc<tokio_postgres::Client>>,
+    services_container: OnceCell<Arc<ServicesContainer>>,
+    thought_store: OnceCell<Arc<dyn crate::thoughts::model::ThoughtStore>>,
+    thought_service: OnceCell<Arc<dyn crate::thoughts::ThoughtService>>,
 }
 
 impl DependenciesBuilder {
     pub fn new(config_builder: ConfigurationBuilder) -> Self {
         Self {
             config_builder,
-            db_client: None,
-            services_container: None,
-            thought_store: None,
-            thought_service: None,
+            db_client: OnceCell::new(),
+            services_container: OnceCell::new(),
+            thought_store: OnceCell::new(),
+            thought_service: OnceCell::new(),
         }
     }
 
-    async fn build_db_client(&mut self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
+    async fn build_db_client(&self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
         let connection_string = self
             .config_builder
-            .get_thought_config()?
+            .get_thought_config()
+            .await?
             .get_database_connection_string()
             .map_err(DependenciesError::ConfigError)?;
 
@@ -66,16 +68,17 @@ impl DependenciesBuilder {
         Ok(Arc::new(client))
     }
 
-    async fn get_db_client(&mut self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
-        if self.db_client.is_none() {
-            self.db_client = Some(self.build_db_client().await?);
-        }
+    async fn get_db_client(&self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
+        let init = self.build_db_client();
 
-        Ok(self.db_client.as_ref().cloned().unwrap())
+        self.db_client
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 
     pub async fn build_thought_store(
-        &mut self,
+        &self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
         let client = self.get_db_client().await?;
         let thought_store = crate::thoughts::model::AgrumThoughtStore::new(client);
@@ -84,21 +87,22 @@ impl DependenciesBuilder {
     }
 
     pub async fn get_thought_store(
-        &mut self,
+        &self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
-        if self.thought_store.is_none() {
-            self.thought_store = Some(self.build_thought_store().await?);
-        }
+        let init = self.build_thought_store();
 
-        Ok(self.thought_store.as_ref().cloned().unwrap())
+        self.thought_store
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 
     pub async fn build_http_runtime(
-        &mut self,
+        &self,
     ) -> Result<Arc<crate::http::BackendHttpRuntime>, DependenciesError> {
         //let services_container = self.get_services_container().await?;
         let runtime = crate::http::BackendHttpRuntime::new(
-            self.config_builder.get_http_config()?,
+            self.config_builder.get_http_config().await?,
             self.get_services_container().await?,
         );
 
@@ -106,10 +110,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_thought_service(
-        &mut self,
+        &self,
     ) -> Result<Arc<dyn crate::thoughts::ThoughtService>, DependenciesError> {
         let service = crate::thoughts::BackendThoughtService::new(
-            self.config_builder.get_thought_config()?,
+            self.config_builder.get_thought_config().await?,
             self.get_thought_store().await?,
         );
 
@@ -117,30 +121,30 @@ impl DependenciesBuilder {
     }
 
     pub async fn get_thought_service(
-        &mut self,
+        &self,
     ) -> Result<Arc<dyn crate::thoughts::ThoughtService>, DependenciesError> {
-        if self.thought_service.is_none() {
-            self.thought_service = Some(self.build_thought_service().await?);
-        }
+        let init = self.build_thought_service();
 
-        Ok(self.thought_service.as_ref().cloned().unwrap())
+        self.thought_service
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 
-    async fn build_services_container(
-        &mut self,
-    ) -> Result<Arc<ServicesContainer>, DependenciesError> {
+    async fn build_services_container(&self) -> Result<Arc<ServicesContainer>, DependenciesError> {
         let thoughts_service = self.get_thought_service().await?;
 
         Ok(Arc::new(ServicesContainer::new(thoughts_service)))
     }
 
     pub async fn get_services_container(
-        &mut self,
+        &self,
     ) -> Result<Arc<ServicesContainer>, DependenciesError> {
-        if self.services_container.is_none() {
-            self.services_container = Some(self.build_services_container().await?);
-        }
+        let init = self.build_services_container();
 
-        Ok(self.services_container.as_ref().cloned().unwrap())
+        self.services_container
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
     }
 }
