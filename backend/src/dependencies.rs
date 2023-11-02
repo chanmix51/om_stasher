@@ -4,9 +4,9 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use flat_config::ConfigError;
 use thiserror::Error;
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, OnceCell};
 
-use crate::{configuration::ConfigurationBuilder, ServicesContainer, StdError};
+use crate::{configuration::ConfigurationBuilder, event_dispatcher, ServicesContainer, StdError};
 
 #[derive(Error, Debug)]
 pub enum DependenciesError {
@@ -29,6 +29,7 @@ pub struct DependenciesBuilder {
     services_container: OnceCell<Arc<ServicesContainer>>,
     thought_store: OnceCell<Arc<dyn crate::thoughts::model::ThoughtStore>>,
     thought_service: OnceCell<Arc<dyn crate::thoughts::ThoughtService>>,
+    event_dispatcher: OnceCell<Arc<crate::EventDispatcher>>,
 }
 
 impl DependenciesBuilder {
@@ -39,6 +40,7 @@ impl DependenciesBuilder {
             services_container: OnceCell::new(),
             thought_store: OnceCell::new(),
             thought_service: OnceCell::new(),
+            event_dispatcher: OnceCell::new(),
         }
     }
 
@@ -109,12 +111,35 @@ impl DependenciesBuilder {
         Ok(Arc::new(runtime))
     }
 
+    async fn build_event_dispatcher(
+        &self,
+    ) -> Result<Arc<crate::EventDispatcher>, DependenciesError> {
+        let dispatcher = crate::EventDispatcher::default();
+
+        Ok(Arc::new(dispatcher))
+    }
+
+    pub async fn get_event_dispatcher(
+        &self,
+    ) -> Result<Arc<crate::EventDispatcher>, DependenciesError> {
+        let init = self.build_event_dispatcher();
+
+        self.event_dispatcher
+            .get_or_try_init(|| init)
+            .await
+            .map(|x| x.clone())
+    }
+
     async fn build_thought_service(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::ThoughtService>, DependenciesError> {
+        let (sender, _) = self.get_event_dispatcher().await?.subscribe();
+        let sender = Arc::new(Mutex::new(sender));
+
         let service = crate::thoughts::BackendThoughtService::new(
             self.config_builder.get_thought_config().await?,
             self.get_thought_store().await?,
+            sender,
         );
 
         Ok(Arc::new(service))

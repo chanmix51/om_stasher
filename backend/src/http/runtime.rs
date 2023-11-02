@@ -9,6 +9,7 @@ use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::Runtime;
 use crate::{ServicesContainer, StdResult};
 
 use super::BackendHttpConfig;
@@ -67,8 +68,11 @@ impl BackendHttpRuntime {
             services_container,
         }
     }
+}
 
-    pub async fn run(&self) -> StdResult<()> {
+#[async_trait]
+impl Runtime for BackendHttpRuntime {
+    async fn run(&self) -> StdResult<()> {
         //tracing_subscriber::fmt().init();
         let router = Router::new()
             .hoop(affix::inject(self.services_container.clone()))

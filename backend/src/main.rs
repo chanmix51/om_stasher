@@ -57,11 +57,14 @@ async fn main() -> StdResult<()> {
         .init()?;
 
     // Do not forget to update `to_flat_pool` function when new command line parameters are added.
-    let flat_pool = parameters.to_flat_pool();
-    let mut dependencies = DependenciesBuilder::new(ConfigurationBuilder::new(flat_pool));
+    let dependencies =
+        DependenciesBuilder::new(ConfigurationBuilder::new(parameters.to_flat_pool()));
+
+    // HTTP server runtime initialization
     let http_service_runtime = dependencies.build_http_runtime().await?;
     let http_service_handle = tokio::spawn(async move { http_service_runtime.run().await });
 
+    // Launch all runtimes
     let runtime_result = tokio::select! {
         res = http_service_handle => res.map_err(|e| anyhow!(e)),
     }?;

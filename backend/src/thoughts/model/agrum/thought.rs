@@ -107,7 +107,7 @@ mod tests {
         let definition = ThoughtEntitySqlDefinition::default();
 
         assert_eq!(
-            "select pika from thought.thought where true".to_string(),
+            "select thought_id as thought_id, parent_thought_id as parent_thought_id, keywords as keywords, categories as categories, sources as sources, created_at as created_at, content as content from thought.thought where true".to_string(),
             definition.expand("true")
         );
 

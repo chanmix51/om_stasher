@@ -3,9 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use log::trace;
 use thiserror::Error;
+use tokio::sync::{mpsc::UnboundedSender, Mutex};
 use uuid::Uuid;
 
-use crate::StdResult;
+use crate::{EventMessage, StdResult};
 
 use super::{
     model::{agrum::ThoughtEntity, ThoughtEnvelope, ThoughtSource, ThoughtStore},
@@ -45,13 +46,19 @@ pub trait ThoughtService: Sync + Send {
 pub struct BackendThoughtService {
     config: Arc<ThoughtServiceConfig>,
     thought_store: Arc<dyn ThoughtStore>,
+    event_sender: Arc<Mutex<UnboundedSender<EventMessage>>>,
 }
 
 impl BackendThoughtService {
-    pub fn new(config: Arc<ThoughtServiceConfig>, thought_store: Arc<dyn ThoughtStore>) -> Self {
+    pub fn new(
+        config: Arc<ThoughtServiceConfig>,
+        thought_store: Arc<dyn ThoughtStore>,
+        event_sender: Arc<Mutex<UnboundedSender<EventMessage>>>,
+    ) -> Self {
         Self {
             config,
             thought_store,
+            event_sender,
         }
     }
 }
