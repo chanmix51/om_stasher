@@ -6,7 +6,7 @@ use flat_config::ConfigError;
 use thiserror::Error;
 use tokio::sync::{Mutex, OnceCell};
 
-use crate::{configuration::ConfigurationBuilder, event_dispatcher, ServicesContainer, StdError};
+use crate::{configuration::ConfigurationBuilder, ServicesContainer, StdError};
 
 #[derive(Error, Debug)]
 pub enum DependenciesError {
@@ -79,7 +79,7 @@ impl DependenciesBuilder {
             .map(|x| x.clone())
     }
 
-    pub async fn build_thought_store(
+    async fn build_thought_store(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
         let client = self.get_db_client().await?;
@@ -109,6 +109,20 @@ impl DependenciesBuilder {
         );
 
         Ok(Arc::new(runtime))
+    }
+
+    pub async fn build_thought_runtime(
+        &self,
+    ) -> Result<Arc<crate::Runtime<crate::thoughts::ThoughtServiceRuntime>>, DependenciesError>
+    {
+        let service_runtime =
+            crate::thoughts::ThoughtServiceRuntime::new(self.get_services_container().await?);
+        let (_, broadcast_receiver) = self.get_event_dispatcher().await?.subscribe();
+
+        Ok(Arc::new(crate::Runtime::new(
+            Arc::new(service_runtime),
+            Arc::new(Mutex::new(broadcast_receiver)),
+        )))
     }
 
     async fn build_event_dispatcher(

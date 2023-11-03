@@ -24,20 +24,20 @@ pub enum StateModification {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventMessage {
     /// Service the message originates from
-    origin: String,
+    pub origin: u8,
 
     /// The name of the entity the message refers to
-    subject: String,
+    pub subject: String,
 
     /// The type of state modification with the link to the according data.
-    action: StateModification,
+    pub action: StateModification,
 }
 
 impl EventMessage {
     /// Create a new event message
-    pub fn new(origin: &str, subject: &str, action: StateModification) -> Self {
+    pub fn new(origin: u8, subject: &str, action: StateModification) -> Self {
         Self {
-            origin: origin.to_string(),
+            origin,
             subject: subject.to_string(),
             action,
         }
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(Err(TryRecvError::Empty), receiver.try_recv());
 
         let message = EventMessage::new(
-            "origin",
+            0,
             "subject",
             StateModification::Creation("Whatever".to_string()),
         );
@@ -148,7 +148,7 @@ mod tests {
         });
 
         let message = EventMessage::new(
-            "sender1",
+            0,
             "whatever",
             StateModification::Delete("whatever".to_string()),
         );

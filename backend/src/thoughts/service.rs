@@ -13,6 +13,8 @@ use super::{
     ThoughtServiceConfig,
 };
 
+const SERVICE_ID: u8 = 1;
+
 #[derive(Debug, Error)]
 pub enum ThoughtServiceError {
     #[error("Parent node '{0}' does not exist")]
