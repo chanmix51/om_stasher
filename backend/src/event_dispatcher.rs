@@ -1,11 +1,13 @@
 use anyhow::anyhow;
+use async_trait::async_trait;
+use log::debug;
 use tokio::sync::broadcast::{
     channel as broadcast_channel, Receiver as BroadcastReceiver, Sender as BroadcastSender,
 };
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 
-use crate::StdResult;
+use crate::{ServiceRuntime, StdResult};
 
 /// Size of subscribers' channels buffers.
 /// All registered subscribers will allocate a channel with this buffer length.
@@ -87,6 +89,25 @@ impl EventDispatcher {
                 .map_err(|e| anyhow!(e).context("Could not broadcast event")),
             None => Err(anyhow!("No more senders to listen to.")),
         }
+    }
+}
+
+/// This structure is a debugging service to log events broadcasted by the event dispatcher.
+#[derive(Debug, Default)]
+pub struct LoggerServiceRuntime;
+
+#[async_trait]
+impl ServiceRuntime for LoggerServiceRuntime {
+    // There is no service associated with this listener hence there is no way it could be notified
+    // from its own events. 0 is a safe value here.
+    fn get_service_id(&self) -> u8 {
+        0
+    }
+
+    async fn process_event(&self, event: EventMessage) -> StdResult<()> {
+        debug!("📨→ {event:?}");
+
+        Ok(())
     }
 }
 

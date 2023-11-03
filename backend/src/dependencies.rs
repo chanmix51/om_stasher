@@ -125,6 +125,18 @@ impl DependenciesBuilder {
         )))
     }
 
+    pub async fn build_logger_service_runtime(
+        &self,
+    ) -> Result<Arc<crate::Runtime<crate::LoggerServiceRuntime>>, DependenciesError> {
+        let service_runtime = crate::LoggerServiceRuntime;
+        let (_, broadcast_receiver) = self.get_event_dispatcher().await?.subscribe();
+
+        Ok(Arc::new(crate::Runtime::new(
+            Arc::new(service_runtime),
+            Arc::new(Mutex::new(broadcast_receiver)),
+        )))
+    }
+
     async fn build_event_dispatcher(
         &self,
     ) -> Result<Arc<crate::EventDispatcher>, DependenciesError> {

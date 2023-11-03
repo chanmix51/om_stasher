@@ -3,7 +3,7 @@ use clap::Parser;
 use clap_verbosity_flag::Verbosity;
 use flat_config::pool::SimpleFlatPool;
 
-use backend::{ConfigurationBuilder, DependenciesBuilder, StdResult};
+use backend::{ConfigurationBuilder, DependenciesBuilder, LoggerServiceRuntime, StdResult};
 
 /// Possible command line options and arguments
 #[derive(Debug, Parser)]
@@ -65,10 +65,14 @@ async fn main() -> StdResult<()> {
     // ThoughtService runtime initialization
     let thought_service_runtime = dependencies.build_thought_runtime().await?;
 
+    // Logger service runtime.
+    let logger_service_runtime = dependencies.build_logger_service_runtime().await?;
+
     // Launch all runtimes
     let runtime_result = tokio::select! {
         res = http_service_runtime.run() => res.map_err(|e| anyhow!(e)),
         res = thought_service_runtime.run() => res,
+        res = logger_service_runtime.run() => res,
     };
 
     println!("Quitting…");
