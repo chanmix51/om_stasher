@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use flat_config::ConfigError;
+use log::{debug, error, trace};
 use thiserror::Error;
 use tokio::sync::{Mutex, OnceCell};
 
@@ -45,12 +46,14 @@ impl DependenciesBuilder {
     }
 
     async fn build_db_client(&self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
+        trace!("DEP BUILDER: build database connection…");
         let connection_string = self
             .config_builder
             .get_thought_config()
             .await?
             .get_database_connection_string()
             .map_err(DependenciesError::ConfigError)?;
+        debug!("Database connection string: '{connection_string}'");
 
         let (client, connection) =
             tokio_postgres::connect(&connection_string, tokio_postgres::NoTls)
@@ -63,7 +66,9 @@ impl DependenciesBuilder {
 
         tokio::spawn(async move {
             if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
+                error!("Database connection error: {}", e);
+            } else {
+                trace!("Database connection closed.");
             }
         });
 
@@ -71,6 +76,7 @@ impl DependenciesBuilder {
     }
 
     async fn get_db_client(&self) -> Result<Arc<tokio_postgres::Client>, DependenciesError> {
+        trace!("DEP BUILDER: get database connection…");
         let init = self.build_db_client();
 
         self.db_client
@@ -82,6 +88,7 @@ impl DependenciesBuilder {
     async fn build_thought_store(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
+        trace!("DEP BUILDER: build thought store…");
         let client = self.get_db_client().await?;
         let thought_store = crate::thoughts::model::AgrumThoughtStore::new(client);
 
@@ -91,6 +98,7 @@ impl DependenciesBuilder {
     pub async fn get_thought_store(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::model::ThoughtStore>, DependenciesError> {
+        trace!("DEP BUILDER: get thought store…");
         let init = self.build_thought_store();
 
         self.thought_store
@@ -102,7 +110,7 @@ impl DependenciesBuilder {
     pub async fn build_http_runtime(
         &self,
     ) -> Result<Arc<crate::http::BackendHttpRuntime>, DependenciesError> {
-        //let services_container = self.get_services_container().await?;
+        trace!("DEP BUILDER: build HTTP server runtime…");
         let runtime = crate::http::BackendHttpRuntime::new(
             self.config_builder.get_http_config().await?,
             self.get_services_container().await?,
@@ -115,6 +123,7 @@ impl DependenciesBuilder {
         &self,
     ) -> Result<Arc<crate::Runtime<crate::thoughts::ThoughtServiceRuntime>>, DependenciesError>
     {
+        trace!("DEP BUILDER: build Thought runtime…");
         let service_runtime =
             crate::thoughts::ThoughtServiceRuntime::new(self.get_services_container().await?);
         let (_, broadcast_receiver) = self.get_event_dispatcher().await?.subscribe();
@@ -125,9 +134,10 @@ impl DependenciesBuilder {
         )))
     }
 
-    pub async fn build_logger_service_runtime(
+    pub async fn build_logger_runtime(
         &self,
     ) -> Result<Arc<crate::Runtime<crate::LoggerServiceRuntime>>, DependenciesError> {
+        trace!("DEP BUILDER: build event logger runtime…");
         let service_runtime = crate::LoggerServiceRuntime;
         let (_, broadcast_receiver) = self.get_event_dispatcher().await?.subscribe();
 
@@ -140,6 +150,7 @@ impl DependenciesBuilder {
     async fn build_event_dispatcher(
         &self,
     ) -> Result<Arc<crate::EventDispatcher>, DependenciesError> {
+        trace!("DEP BUILDER: build event dispatcher…");
         let dispatcher = crate::EventDispatcher::default();
 
         Ok(Arc::new(dispatcher))
@@ -148,6 +159,7 @@ impl DependenciesBuilder {
     pub async fn get_event_dispatcher(
         &self,
     ) -> Result<Arc<crate::EventDispatcher>, DependenciesError> {
+        trace!("DEP BUILDER: get event dispatcher…");
         let init = self.build_event_dispatcher();
 
         self.event_dispatcher
@@ -159,6 +171,7 @@ impl DependenciesBuilder {
     async fn build_thought_service(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::ThoughtService>, DependenciesError> {
+        trace!("DEP BUILDER: build Thought service…");
         let (sender, _) = self.get_event_dispatcher().await?.subscribe();
         let sender = Arc::new(Mutex::new(sender));
 
@@ -174,6 +187,7 @@ impl DependenciesBuilder {
     pub async fn get_thought_service(
         &self,
     ) -> Result<Arc<dyn crate::thoughts::ThoughtService>, DependenciesError> {
+        trace!("DEP BUILDER: get Thought service…");
         let init = self.build_thought_service();
 
         self.thought_service
@@ -183,6 +197,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_services_container(&self) -> Result<Arc<ServicesContainer>, DependenciesError> {
+        trace!("DEP BUILDER: build services container…");
         let thoughts_service = self.get_thought_service().await?;
 
         Ok(Arc::new(ServicesContainer::new(thoughts_service)))
@@ -191,6 +206,7 @@ impl DependenciesBuilder {
     pub async fn get_services_container(
         &self,
     ) -> Result<Arc<ServicesContainer>, DependenciesError> {
+        trace!("DEP BUILDER: get services container…");
         let init = self.build_services_container();
 
         self.services_container

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::debug;
@@ -108,6 +110,31 @@ impl ServiceRuntime for LoggerServiceRuntime {
         debug!("📨→ {event:?}");
 
         Ok(())
+    }
+}
+
+/// Event dispatcher loop
+///
+/// This is run alongside all runtimes
+pub struct EventDispatcherLoop {
+    dispatcher: Arc<EventDispatcher>,
+}
+
+impl EventDispatcherLoop {
+    pub fn new(dispatcher: Arc<EventDispatcher>) -> Self {
+        Self { dispatcher }
+    }
+
+    /// Loop
+    pub async fn tickle(&self) -> StdResult<()> {
+        loop {
+            match self.dispatcher.cycle().await {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
+            };
+        }
     }
 }
 

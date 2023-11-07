@@ -2,8 +2,14 @@ use anyhow::anyhow;
 use clap::Parser;
 use clap_verbosity_flag::Verbosity;
 use flat_config::pool::SimpleFlatPool;
+use futures::stream::StreamExt;
+use log::{error, info, trace, warn};
+use signal_hook::consts::*;
+use signal_hook_tokio::Signals;
 
-use backend::{ConfigurationBuilder, DependenciesBuilder, LoggerServiceRuntime, StdResult};
+use backend::{
+    ConfigurationBuilder, DependenciesBuilder, EventDispatcher, EventDispatcherLoop, StdResult,
+};
 
 /// Possible command line options and arguments
 #[derive(Debug, Parser)]
@@ -44,8 +50,27 @@ impl CommandLineParameters {
     }
 }
 
+/// OS signal handler (only Linux for now)
+pub struct OsSignalHandler;
+
+impl OsSignalHandler {
+    pub async fn handle_signal(mut signals: Signals) {
+        while let Some(signal) = signals.next().await {
+            match signal {
+                SIGTERM | SIGINT | SIGQUIT => {
+                    warn!("Signal caught: {signal}");
+
+                    break;
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> StdResult<()> {
+    // Read parameters from command line and environment.
     let parameters = CommandLineParameters::parse();
 
     // logger initialization
@@ -54,28 +79,48 @@ async fn main() -> StdResult<()> {
         .quiet(parameters.verbose.is_silent())
         .verbosity(parameters.verbose.log_level_filter())
         .init()?;
+    info!("OMStasher backend version {}", env!("CARGO_PKG_VERSION"));
 
+    trace!("Initialize dependencies builder");
     // Do not forget to update `to_flat_pool` function when new command line parameters are added.
     let dependencies =
         DependenciesBuilder::new(ConfigurationBuilder::new(parameters.to_flat_pool()));
 
-    // HTTP server runtime initialization
-    let http_service_runtime = dependencies.build_http_runtime().await?;
+    trace!("HTTP server runtime initialization");
+    let http_runtime = dependencies.build_http_runtime().await?;
 
-    // ThoughtService runtime initialization
-    let thought_service_runtime = dependencies.build_thought_runtime().await?;
+    trace!("Thought runtime initialization");
+    let thought_runtime = dependencies.build_thought_runtime().await?;
 
-    // Logger service runtime.
-    let logger_service_runtime = dependencies.build_logger_service_runtime().await?;
+    trace!("Logger runtime initialization");
+    let logger_runtime = dependencies.build_logger_runtime().await?;
 
-    // Launch all runtimes
+    trace!("create event dispatcher loop");
+    let dispatcher_loop = EventDispatcherLoop::new(dependencies.get_event_dispatcher().await?);
+
+    trace!("create signal handler and hook");
+    let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
+    let signal_handler = signals.handle();
+
+    // The dependencies builder is dropped in order to remove all Arc instances in it.
+    drop(dependencies);
+
+    trace!("launch all runtimes…");
     let runtime_result = tokio::select! {
-        res = http_service_runtime.run() => res.map_err(|e| anyhow!(e)),
-        res = thought_service_runtime.run() => res,
-        res = logger_service_runtime.run() => res,
+        res = http_runtime.run() => res.map_err(|e| anyhow!(e)),
+        res = thought_runtime.run() => res,
+        res = logger_runtime.run() => res,
+        _ = OsSignalHandler::handle_signal(signals) => Ok(()),
+        _ = dispatcher_loop.tickle() => Err(anyhow!("Event dispatcher has terminated!")),
     };
 
-    println!("Quitting…");
+    trace!("close signal handler");
+    signal_handler.close();
+
+    match &runtime_result {
+        Err(e) => error!("{e}"),
+        Ok(_) => info!("…Finishing OK."),
+    };
 
     runtime_result
 }

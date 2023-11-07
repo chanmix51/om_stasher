@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use log::warn;
 use tokio::{
     sync::{broadcast::Receiver, Mutex},
     task::yield_now,
@@ -41,10 +42,15 @@ where
         }
     }
 
+    /// This is the way to launch a listener runtime.
+    /// It will discard any incoming events that its associated service has sent.
     pub async fn run(&self) -> StdResult<()> {
         loop {
             match self.broadcast_receiver.lock().await.recv().await {
-                Err(_e) => return Ok(()),
+                Err(_e) => {
+                    warn!("reading from broadcast channel returned an error");
+                    return Ok(());
+                }
                 Ok(event) if event.origin == self.service_runtime.get_service_id() => continue,
                 Ok(event) => self.service_runtime.process_event(event).await?,
             }

@@ -82,6 +82,10 @@ impl BackendHttpRuntime {
                     &self.config.get_listen_address(),
                 )
             })?;
+        info!(
+            "Launching HTTP server at address '{}'",
+            &self.config.get_listen_address()
+        );
         Server::new(acceptor).serve(router).await;
 
         Ok(())
