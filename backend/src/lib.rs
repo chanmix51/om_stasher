@@ -9,7 +9,7 @@ pub mod thoughts;
 pub type StdError = anyhow::Error;
 pub type StdResult<T> = anyhow::Result<T>;
 
-pub use configuration::ConfigurationBuilder;
+pub use configuration::{ConfigurationBuilder, ConfigurationFileParser};
 pub use dependencies::*;
 pub use event_dispatcher::*;
 pub use runtime::*;
