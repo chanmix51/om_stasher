@@ -1,9 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use clap::Parser;
 use clap_verbosity_flag::Verbosity;
-use flat_config::pool::{FlatPool, LayeredFlatPool, SimpleFlatPool};
+use flat_config::{
+    pool::{FlatPool, LayeredFlatPool, SimpleFlatPool},
+    TryUnwrap,
+};
 use futures::stream::StreamExt;
 use log::{debug, error, info, trace, warn};
 use signal_hook::consts::*;
@@ -59,11 +62,40 @@ impl CommandLineParameters {
     }
 }
 
+/// Set the application default parameters
+/// Theses parameters will be assumed to always be present in the [ConfigurationBuilder]
 fn default_parameters() -> SimpleFlatPool {
+    // compilation constants
+    // code parsed at compilation time
+
+    /// configuration file that will be searched for if no other options are provided.
+    const DEFAULT_CONFIG_FILE: &str = match option_env!("OMSTASHER_BACKEND_DEFAULT_CONFIG_FILE") {
+        Some(s) => s,
+        None => "backend.config.toml",
+    };
+
+    /// default TCP port for the HTTP server
+    const DEFAULT_HTTP_PORT: &str = match option_env!("OMSTASHER_BACKEND_DEFAULT_HTTP_PORT") {
+        Some(s) => s,
+        None => "80",
+    };
+
+    /// default IP address the HTTP server will bind to
+    const DEFAULT_HTTP_ADDRESS: &str = match option_env!("OMSTASHER_BACKEND_DEFAULT_HTTP_ADDRESS") {
+        Some(s) => s,
+        None => "127.0.0.1",
+    };
+
     let mut flat_pool = SimpleFlatPool::default();
     flat_pool
-        .add("http_address", "127.0.0.1".into())
-        .add("http_port", 80.into());
+        .add("http_address", DEFAULT_HTTP_ADDRESS.into())
+        .add(
+            "http_port",
+            DEFAULT_HTTP_PORT.parse::<isize>().unwrap().into(),
+        )
+        // the name 'default_config_file' is therefore reserved for our usage
+        // and will be EXPECTED to be present at runtime.
+        .add("default_config_file", DEFAULT_CONFIG_FILE.into());
 
     flat_pool
 }
@@ -105,16 +137,26 @@ async fn main() -> StdResult<()> {
 
     trace!("manage configuration");
     let mut flat_pools: Vec<Box<dyn FlatPool>> = Vec::new();
+    // 1 - Add default parameters first
     flat_pools.push(Box::new(default_parameters()));
 
-    if let Some(config_file) = ConfigurationFileParser::new(parameters.config_file.as_ref())? {
+    if let Some(config_file) = ConfigurationFileParser::new(
+        parameters.config_file.as_ref(),
+        default_parameters()
+            .require("default_config_file")
+            .map(|v| -> String { v.try_unwrap().unwrap() })
+            .expect("No default configuration file compiled in!")
+            .as_ref(),
+    )? {
+        // 2 - Add configuration file parameters
         flat_pools.push(Box::new(config_file.parse()?));
     }
 
+    // 3 - Add CLI and ENV parameters
     flat_pools.push(Box::new(parameters.to_flat_pool()));
+    debug!("configuration settings: {flat_pools:?}");
 
     trace!("initialize dependencies builder");
-    // Do not forget to update `to_flat_pool` function when new command line parameters are added.
     let dependencies =
         DependenciesBuilder::new(ConfigurationBuilder::new(LayeredFlatPool::new(flat_pools)));
 

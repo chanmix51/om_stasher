@@ -1,9 +1,4 @@
-use std::{
-    fs::File,
-    io::prelude::*,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io::prelude::*, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use flat_config::{
@@ -16,8 +11,6 @@ use toml::{Table, Value};
 
 use crate::StdResult;
 
-const DEFAULT_CONFIG_FILE_NAME: &str = "config.toml";
-
 type DynFlatPool = LayeredFlatPool;
 
 // Configuration file management
@@ -29,37 +22,28 @@ pub struct ConfigurationFileParser {
 impl ConfigurationFileParser {
     /// ## Configuration file constructor.
     ///
-    /// Either a filename is given, in this case, if the file does not exist then this is an error,
-    /// otherwise, the DEFAULT_CONFIG_FILE_NAME is tried. If it does not exist then Ok(None) is
-    /// returned.
-    pub fn new(filepath: Option<&PathBuf>) -> StdResult<Option<Self>> {
-        if let Some(config_file) = filepath {
-            debug!(
-                " → got configuration file path '{}' from environment",
-                config_file.display()
-            );
+    /// If an environment filepath is provided, it WILL be used hence it will be an error if it
+    /// does not exist. If no environment filepath is provided, the default one will be probed. If
+    /// it does not exist, the function returns None, otherwise, the file is added to the
+    /// configuration.
+    pub fn new(env_filepath: Option<&PathBuf>, default_filename: &str) -> StdResult<Option<Self>> {
+        if let Some(filepath) = env_filepath {
+            let filename = filepath.display();
+            debug!(" → got configuration file path '{filename}' from environment",);
 
-            if config_file.exists() {
+            if filepath.exists() {
                 Ok(Some(Self {
-                    filepath: config_file.to_owned(),
+                    filepath: filepath.to_owned(),
                 }))
             } else {
-                Err(anyhow!(
-                    "Configuration file '{}' does not exist",
-                    config_file.display()
-                ))
+                Err(anyhow!("Configuration file '{filename}' does not exist",))
             }
         } else {
-            let config_file = Path::new(DEFAULT_CONFIG_FILE_NAME).to_path_buf();
-            if config_file.exists() {
-                debug!(
-                    " → found default configuration file path '{}'",
-                    config_file.display()
-                );
+            let filepath = PathBuf::new().join(default_filename);
+            if filepath.exists() {
+                debug!(" → found default configuration file path '{default_filename}'",);
 
-                Ok(Some(Self {
-                    filepath: config_file.to_owned(),
-                }))
+                Ok(Some(Self { filepath: filepath }))
             } else {
                 Ok(None)
             }

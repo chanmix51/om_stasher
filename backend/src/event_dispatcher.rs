@@ -28,6 +28,7 @@ pub enum StateModification {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventMessage {
     /// Service the message originates from
+    /// By convention, origin shall never be 0.
     pub origin: u8,
 
     /// The name of the entity the message refers to
@@ -149,7 +150,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_simple() -> StdResult<()> {
-        let mut dispatcher = EventDispatcher::default();
+        let dispatcher = EventDispatcher::default();
         let (sender, mut receiver) = dispatcher.subscribe();
         let handler = tokio::spawn(async move {
             loop {
@@ -186,7 +187,7 @@ mod tests {
 
     #[tokio::test]
     async fn two_subscribers() -> StdResult<()> {
-        let mut dispatcher = EventDispatcher::default();
+        let dispatcher = EventDispatcher::default();
         let (sender1, mut receiver1) = dispatcher.subscribe();
         let (_sender2, mut receiver2) = dispatcher.subscribe();
         let handler = tokio::spawn(async move {
